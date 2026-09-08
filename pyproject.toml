@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "PyMuPDF>=1.24",
     "sentence-transformers>=3.0",
-    "chromadb>=0.5,<0.7",
+    "chromadb>=1.0",
     "typer>=0.12",
     "google-api-python-client>=2.130",
     "google-auth-httplib2>=0.2",
@@ -32,3 +32,4 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = ["integration: slower tests that hit the real embedding model and/or Chroma on disk"]

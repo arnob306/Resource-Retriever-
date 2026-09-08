@@ -2,6 +2,7 @@
 
 import typer
 
+from resource_retriever.cli.index_cmd import index
 from resource_retriever.cli.ingest_cmd import ingest
 
 app = typer.Typer(help="Local semantic search over teaching resource PDFs.")
@@ -18,3 +19,5 @@ def _main() -> None:
 
 
 app.command(name="ingest")(ingest)
+app.command(name="index")(index)
+app.command(name="reindex")(index)
