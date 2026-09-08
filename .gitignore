@@ -1,0 +1,19 @@
+# Resource Retriever local data (never commit — may contain OAuth tokens, indexed content)
+data/
+*.sqlite3
+chroma/
+drive_token.json
+google_client_secrets.json
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+build/
+dist/
