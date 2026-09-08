@@ -50,3 +50,20 @@ def test_raises_on_pdf_with_no_extractable_text(tmp_path):
 def test_raises_on_non_pdf_bytes():
     with pytest.raises(ExtractionError):
         extract_pages(b"this is not a pdf")
+
+
+def test_page_parsing_failure_is_wrapped_as_extraction_error(sample_pdf_bytes, monkeypatch):
+    """A raw exception mid-parse (e.g. a mupdf internal error on a specific page) must not
+    escape as a bare exception — it should surface as ExtractionError so callers that only
+    catch ExtractionError/OSError (like ingest_service) never crash on one bad page.
+    """
+
+    def _raise(self, index):
+        raise RuntimeError("simulated mupdf page-parse failure")
+
+    monkeypatch.setattr(fitz.Document, "load_page", _raise)
+
+    with pytest.raises(ExtractionError) as exc_info:
+        extract_pages(sample_pdf_bytes)
+
+    assert isinstance(exc_info.value.__cause__, RuntimeError)

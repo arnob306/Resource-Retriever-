@@ -28,10 +28,15 @@ def extract_pages(source: bytes) -> list[PageText]:
         if document.is_encrypted:
             raise ExtractionError("PDF is encrypted; cannot extract text")
 
-        pages = [
-            PageText(page_number=index + 1, text=document.load_page(index).get_text("text"))
-            for index in range(document.page_count)
-        ]
+        try:
+            pages = [
+                PageText(page_number=index + 1, text=document.load_page(index).get_text("text"))
+                for index in range(document.page_count)
+            ]
+        except ExtractionError:
+            raise
+        except Exception as exc:
+            raise ExtractionError(f"Failed to extract page text: {exc}") from exc
 
         if not any(page.text.strip() for page in pages):
             raise ExtractionError("PDF has no extractable text (likely scanned/image-only)")
