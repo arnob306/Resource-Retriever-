@@ -65,6 +65,35 @@ class SqliteMetadataStore(MetadataStore):
         self._connection.execute("DELETE FROM files WHERE id = ?", (file_id,))
         self._connection.commit()
 
+    def list_all(self, source_type: Optional[str] = None) -> list[FileRecord]:
+        if source_type is None:
+            rows = self._connection.execute("SELECT * FROM files").fetchall()
+        else:
+            rows = self._connection.execute(
+                "SELECT * FROM files WHERE source_type = ?", (source_type,)
+            ).fetchall()
+        return [self._row_to_record(row) for row in rows]
+
+    def record_index_run(
+        self,
+        *,
+        started_at: str,
+        finished_at: str,
+        files_discovered: int,
+        files_reprocessed: int,
+        files_skipped: int,
+        files_deleted: int,
+        files_failed: int,
+    ) -> None:
+        self._connection.execute(
+            """INSERT INTO index_runs
+               (started_at, finished_at, files_discovered, files_reprocessed,
+                files_skipped, files_deleted, files_failed)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (started_at, finished_at, files_discovered, files_reprocessed, files_skipped, files_deleted, files_failed),
+        )
+        self._connection.commit()
+
     def _fetch_one(self, sql: str, params: tuple) -> Optional[FileRecord]:
         row = self._connection.execute(sql, params).fetchone()
         return self._row_to_record(row) if row is not None else None
