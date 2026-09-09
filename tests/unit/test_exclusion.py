@@ -39,3 +39,25 @@ def test_empty_config_excludes_nothing():
     result = is_excluded(r"C:\docs\worksheets\quadratics.pdf", config)
 
     assert result is False
+
+
+def test_exact_match_normalizes_forward_slashes_in_denylist_entry(tmp_path):
+    target = tmp_path / "iep_notes.pdf"
+    target.write_bytes(b"%PDF-1.4 fake")
+    forward_slash_entry = str(target).replace("\\", "/")
+    config = ExclusionConfig(excluded_files=frozenset({forward_slash_entry}))
+
+    result = is_excluded(str(target), config)
+
+    assert result is True
+
+
+def test_exact_match_normalizes_relative_denylist_entry(tmp_path, monkeypatch):
+    target = tmp_path / "gradebook.pdf"
+    target.write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.chdir(tmp_path)
+    config = ExclusionConfig(excluded_files=frozenset({"gradebook.pdf"}))
+
+    result = is_excluded(str(target.resolve()), config)
+
+    assert result is True

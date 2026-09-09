@@ -13,10 +13,22 @@ class ExclusionConfig:
     excluded_files: frozenset[str] = field(default_factory=frozenset)
 
 
+def _normalize_for_exact_match(path_str: str) -> str:
+    """Resolve `path_str` to a canonical absolute form before comparing.
+
+    `excluded_files.txt` is hand-edited, so an entry may use forward slashes, a relative path,
+    or `..` segments that would never string-equal the canonical resolved path `local_walker`
+    always passes in — without resolving both sides first, such an entry silently fails to
+    match and the file it was meant to exclude gets indexed instead. `resolve(strict=False)`
+    is used so an entry pointing at a currently-missing path doesn't raise.
+    """
+    return str(Path(path_str).resolve(strict=False)).lower()
+
+
 def is_excluded(path: str, config: ExclusionConfig) -> bool:
     """True if `path` matches the denylist by exact match, folder name, or substring."""
     normalized_path = path.lower()
-    if normalized_path in {f.lower() for f in config.excluded_files}:
+    if _normalize_for_exact_match(path) in {_normalize_for_exact_match(f) for f in config.excluded_files}:
         return True
 
     path_parts = [part.lower() for part in Path(path).parts]
