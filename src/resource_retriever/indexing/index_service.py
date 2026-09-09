@@ -46,6 +46,12 @@ def run_index(
 
     for record in store.list_all(source_type="local"):
         if record.status == "excluded":
+            if record.indexed_at is not None:
+                # Previously indexed, then excluded since (e.g. a new denylist rule) — its old
+                # chunks must not linger in the vector store where `find` could still surface them.
+                vector_store.delete_by_file_id(record.id)
+                store.upsert_file(_clear_indexed_state(record))
+                counts["deleted"] += 1
             continue
         counts["discovered"] += 1
         try:
@@ -61,7 +67,7 @@ def run_index(
         outcome = _apply_action(record, discovered, store, vector_store, embedder, app_config)
         counts[outcome] += 1
 
-    counts["deleted"] = _purge_stale(store, vector_store, processed_ids)
+    counts["deleted"] += _purge_stale(store, vector_store, processed_ids)
     finished_at = datetime.now(timezone.utc).isoformat()
     store.record_index_run(
         started_at=started_at,
@@ -177,6 +183,23 @@ def _with_stat(
         page_count=page_count if page_count is not None else record.page_count,
         status=status or record.status,
         indexed_at=datetime.now(timezone.utc).isoformat() if touch_indexed_at else record.indexed_at,
+        created_at=record.created_at,
+    )
+
+
+def _clear_indexed_state(record: FileRecord) -> FileRecord:
+    return FileRecord(
+        id=record.id,
+        source_type=record.source_type,
+        local_path=record.local_path,
+        drive_id=record.drive_id,
+        display_name=record.display_name,
+        content_hash=record.content_hash,
+        file_size=record.file_size,
+        modified_time=record.modified_time,
+        page_count=record.page_count,
+        status=record.status,
+        indexed_at=None,
         created_at=record.created_at,
     )
 
