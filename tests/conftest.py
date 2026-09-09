@@ -27,7 +27,7 @@ def metadata_store(tmp_data_dir: Path):
     store.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def sample_pdfs_dir() -> Path:
     return SAMPLE_PDFS_DIR
 
