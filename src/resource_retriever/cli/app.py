@@ -2,6 +2,7 @@
 
 import typer
 
+from resource_retriever.cli.drive_auth_cmd import drive_login
 from resource_retriever.cli.find_cmd import find
 from resource_retriever.cli.index_cmd import index
 from resource_retriever.cli.ingest_cmd import ingest
@@ -23,3 +24,4 @@ app.command(name="ingest")(ingest)
 app.command(name="index")(index)
 app.command(name="reindex")(index)
 app.command(name="find")(find)
+app.command(name="drive-login")(drive_login)

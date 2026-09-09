@@ -13,6 +13,7 @@ import time
 from dataclasses import dataclass
 
 from resource_retriever.embedding.embedder import Embedder
+from resource_retriever.models.file_record import FileRecord
 from resource_retriever.models.search_result import SearchResult
 from resource_retriever.storage.metadata_store import MetadataStore
 from resource_retriever.storage.vector_store import VectorMatch, VectorStore
@@ -73,24 +74,39 @@ def _dedupe_and_resolve(matches: list[VectorMatch], store: MetadataStore, top_k:
         if match.content_hash in seen_hashes:
             continue
         record = store.get_by_id(match.file_id)
-        if record is None or record.local_path is None or record.status != "indexed":
-            # None/no local_path: removed from the index since embedding, or drive-only (Phase 4).
-            # status != "indexed": excluded since embedding (stale vectors a reindex hasn't purged
-            # yet) or extraction_failed/discovered leftovers — never surface either as a result.
+        if record is None or record.status != "indexed":
+            # None: removed from the index since this chunk was embedded.
+            # status != "indexed": excluded since embedding (stale vectors a reindex hasn't
+            # purged yet) or extraction_failed/discovered leftovers — never surface as a result.
             continue
+        display_path = _display_path(record)
+        if display_path is None:
+            continue  # local record with no local_path, or drive record with no drive_id
         seen_hashes.add(match.content_hash)
         results.append(
             SearchResult(
-                file_path=record.local_path,
+                file_path=display_path,
                 snippet=_make_snippet(match.text),
                 page_number=match.page_start,
                 score=match.score,
-                open_command=_open_command(record.local_path),
+                open_command=_open_command(display_path),
             )
         )
         if len(results) >= top_k:
             break
     return results
+
+
+def _display_path(record: FileRecord) -> str | None:
+    """The path/URL a search result should show and open — a filesystem path for local files,
+    a Drive web-view link for Drive files (Chroma metadata never stores either directly; see
+    the module docstring, so this is resolved fresh from the metadata store every time).
+    """
+    if record.source_type == "drive":
+        if record.drive_id is None:
+            return None
+        return f"https://drive.google.com/file/d/{record.drive_id}/view"
+    return record.local_path
 
 
 def _make_snippet(text: str) -> str:
