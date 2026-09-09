@@ -29,6 +29,32 @@ class DiscoveredState:
     file_size: int
 
 
+def mtime_size_match(
+    existing_modified_time: int,
+    existing_file_size: int,
+    existing_content_hash: Optional[str],
+    candidate_modified_time: int,
+    candidate_file_size: int,
+) -> bool:
+    """The shared cheap pre-check heuristic: true if a freshly-discovered file's mtime+size match
+    a stored record that already has a content hash. Both ingest_service.py (deciding whether to
+    re-read/re-hash a file at all) and index_service.py (deciding whether to re-embed) use this
+    same predicate — kept here, not duplicated, so the two never silently drift apart.
+
+    Accepted tradeoff, not a bug: a coincidental mtime+size match on genuinely different content
+    (rare — a backup restore preserving timestamps, a sync client rewriting identical-length
+    bytes, filesystem clock coarseness) is missed by this heuristic alone. A missed content
+    change is worse than an occasional wasted hash, so callers expose a `--force-rehash` escape
+    hatch that bypasses this check entirely rather than trying to make the heuristic itself
+    perfect.
+    """
+    return (
+        existing_content_hash is not None
+        and existing_modified_time == candidate_modified_time
+        and existing_file_size == candidate_file_size
+    )
+
+
 def decide_action(discovered: Optional[DiscoveredState], existing: Optional[FileRecord]) -> Action:
     if discovered is None:
         return Action.DELETE_STALE

@@ -13,12 +13,15 @@ from resource_retriever.storage.sqlite_metadata_store import SqliteMetadataStore
 def ingest(
     local_root: Path = typer.Argument(..., help="Local folder to walk for PDFs."),
     data_dir: Optional[Path] = typer.Option(None, "--data-dir", help="Override the local data directory."),
+    force_rehash: bool = typer.Option(
+        False, "--force-rehash", help="Skip the mtime/size pre-check and rehash every discovered file."
+    ),
 ) -> None:
     """Discover local PDFs, hash them, and record metadata (no embedding yet)."""
     app_config = load_app_config(data_dir)
     store = SqliteMetadataStore(app_config.metadata_db_path)
     try:
-        summary = run_ingest(local_root, store, app_config)
+        summary = run_ingest(local_root, store, app_config, force_rehash=force_rehash)
     finally:
         store.close()
 

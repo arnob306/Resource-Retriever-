@@ -110,6 +110,11 @@ class SqliteMetadataStore(MetadataStore):
         )
         self._connection.commit()
 
+    def search_stats(self) -> tuple[int, Optional[float]]:
+        row = self._connection.execute("SELECT COUNT(*) AS total, AVG(latency_ms) AS avg_latency FROM search_log").fetchone()
+        average = float(row["avg_latency"]) if row["avg_latency"] is not None else None
+        return row["total"], average
+
     def _fetch_one(self, sql: str, params: tuple) -> Optional[FileRecord]:
         row = self._connection.execute(sql, params).fetchone()
         return self._row_to_record(row) if row is not None else None
