@@ -61,8 +61,13 @@ class SqliteMetadataStore(MetadataStore):
     def get_by_id(self, file_id: str) -> Optional[FileRecord]:
         return self._fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
 
-    def list_stale(self, discovered_ids: set[str]) -> list[FileRecord]:
-        rows = self._connection.execute("SELECT * FROM files WHERE status != 'excluded'").fetchall()
+    def list_stale(self, discovered_ids: set[str], source_type: Optional[str] = None) -> list[FileRecord]:
+        if source_type is None:
+            rows = self._connection.execute("SELECT * FROM files WHERE status != 'excluded'").fetchall()
+        else:
+            rows = self._connection.execute(
+                "SELECT * FROM files WHERE status != 'excluded' AND source_type = ?", (source_type,)
+            ).fetchall()
         return [self._row_to_record(row) for row in rows if row["id"] not in discovered_ids]
 
     def delete_file(self, file_id: str) -> None:

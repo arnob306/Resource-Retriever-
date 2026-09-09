@@ -1,5 +1,6 @@
 """`find-resource index` / `reindex` — embed tracked local files into the vector store."""
 
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -9,7 +10,6 @@ from resource_retriever.embedding.embedder import Embedder
 from resource_retriever.indexing.index_service import run_index
 from resource_retriever.storage.chroma_vector_store import ChromaVectorStore
 from resource_retriever.storage.sqlite_metadata_store import SqliteMetadataStore
-from pathlib import Path
 
 
 def index(

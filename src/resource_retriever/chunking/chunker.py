@@ -7,6 +7,7 @@ tokenizer's `offset_mapping` rather than a lossy decode-then-measure reconstruct
 
 from bisect import bisect_right
 from dataclasses import dataclass
+from typing import Protocol
 
 from resource_retriever.extraction.pdf_text_extractor import PageText
 
@@ -14,7 +15,13 @@ _PAGE_SEPARATOR = "\n\n"
 
 
 class ChunkingError(Exception):
-    """Raised when a document has no usable text to chunk (all pages blank/whitespace)."""
+    """Raised when a document has no usable text to chunk, or the chunk config is invalid."""
+
+
+class OffsetTokenizer(Protocol):
+    """The slice of the HF fast-tokenizer call signature this module actually relies on."""
+
+    def __call__(self, text: str, add_special_tokens: bool, return_offsets_mapping: bool) -> dict: ...
 
 
 @dataclass(frozen=True)
@@ -26,11 +33,19 @@ class ChunkSpan:
     char_end: int
 
 
-def chunk_pages(pages: list[PageText], tokenizer, window_tokens: int, overlap_tokens: int) -> list[ChunkSpan]:
+def chunk_pages(
+    pages: list[PageText], tokenizer: OffsetTokenizer, window_tokens: int, overlap_tokens: int
+) -> list[ChunkSpan]:
     """Slide a `window_tokens`-token window (stepping by `window_tokens - overlap_tokens`) over the
     pages' concatenated text, returning one ChunkSpan per window with exact char offsets and the
     page range that offset falls within.
     """
+    if overlap_tokens >= window_tokens:
+        raise ChunkingError(
+            f"overlap_tokens ({overlap_tokens}) must be smaller than window_tokens ({window_tokens}), "
+            "otherwise the sliding window never advances"
+        )
+
     full_text, page_boundaries = _concatenate_pages(pages)
     if not full_text.strip():
         raise ChunkingError("Document has no extractable text to chunk")
