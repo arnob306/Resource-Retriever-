@@ -203,3 +203,37 @@ def test_open_command_matches_platform(monkeypatch, system, expected_prefix):
     # Assert
     assert command.startswith(expected_prefix)
     assert "/docs/worksheet.pdf" in command
+
+
+def test_drive_sourced_result_shows_a_drive_web_link_not_a_local_path(metadata_store):
+    # Arrange
+    metadata_store.upsert_file(
+        _record(
+            id="drive-file-1",
+            source_type="drive",
+            local_path=None,
+            drive_id="1AbCdEf",
+            content_hash="hash-drive",
+        )
+    )
+    vector_store = FakeVectorStore([_match("drive-file-1", 0, score=0.8, content_hash="hash-drive")])
+
+    # Act
+    outcome = find("quadratics", metadata_store, vector_store, FakeEmbedder(), top_k=5)
+
+    # Assert
+    assert len(outcome.results) == 1
+    assert outcome.results[0].file_path == "https://drive.google.com/file/d/1AbCdEf/view"
+    assert "https://drive.google.com/file/d/1AbCdEf/view" in outcome.results[0].open_command
+
+
+def test_drive_record_with_no_drive_id_is_skipped_not_crashed(metadata_store):
+    # Arrange — defensive case: a drive-sourced record somehow missing its drive_id
+    metadata_store.upsert_file(_record(id="broken", source_type="drive", local_path=None, drive_id=None))
+    vector_store = FakeVectorStore([_match("broken", 0, score=0.9, content_hash="hash-a")])
+
+    # Act
+    outcome = find("quadratics", metadata_store, vector_store, FakeEmbedder(), top_k=5)
+
+    # Assert
+    assert outcome.results == []
