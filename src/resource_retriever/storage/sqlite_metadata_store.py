@@ -2,6 +2,7 @@
 
 import sqlite3
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -57,6 +58,9 @@ class SqliteMetadataStore(MetadataStore):
     def get_by_drive_id(self, drive_id: str) -> Optional[FileRecord]:
         return self._fetch_one("SELECT * FROM files WHERE drive_id = ?", (drive_id,))
 
+    def get_by_id(self, file_id: str) -> Optional[FileRecord]:
+        return self._fetch_one("SELECT * FROM files WHERE id = ?", (file_id,))
+
     def list_stale(self, discovered_ids: set[str]) -> list[FileRecord]:
         rows = self._connection.execute("SELECT * FROM files WHERE status != 'excluded'").fetchall()
         return [self._row_to_record(row) for row in rows if row["id"] not in discovered_ids]
@@ -91,6 +95,13 @@ class SqliteMetadataStore(MetadataStore):
                 files_skipped, files_deleted, files_failed)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (started_at, finished_at, files_discovered, files_reprocessed, files_skipped, files_deleted, files_failed),
+        )
+        self._connection.commit()
+
+    def record_search(self, *, query: str, latency_ms: int, result_count: int) -> None:
+        self._connection.execute(
+            "INSERT INTO search_log (query, latency_ms, result_count, searched_at) VALUES (?, ?, ?, ?)",
+            (query, latency_ms, result_count, datetime.now(timezone.utc).isoformat()),
         )
         self._connection.commit()
 

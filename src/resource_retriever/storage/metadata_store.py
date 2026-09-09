@@ -20,6 +20,9 @@ class MetadataStore(ABC):
     def get_by_drive_id(self, drive_id: str) -> Optional[FileRecord]: ...
 
     @abstractmethod
+    def get_by_id(self, file_id: str) -> Optional[FileRecord]: ...
+
+    @abstractmethod
     def list_stale(self, discovered_ids: set[str]) -> list[FileRecord]: ...
 
     @abstractmethod
@@ -40,3 +43,6 @@ class MetadataStore(ABC):
 
     @abstractmethod
     def delete_file(self, file_id: str) -> None: ...
+
+    @abstractmethod
+    def record_search(self, *, query: str, latency_ms: int, result_count: int) -> None: ...
