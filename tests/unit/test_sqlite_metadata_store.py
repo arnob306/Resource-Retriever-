@@ -77,6 +77,20 @@ def test_list_stale_excludes_excluded_status_rows(metadata_store):
     assert stale == []
 
 
+def test_list_stale_scoped_to_source_type_ignores_other_sources(metadata_store):
+    # Arrange — a Drive-sourced record that a local-only run never discovered this run
+    metadata_store.upsert_file(_record(id="local-1"))
+    metadata_store.upsert_file(
+        _record(id="drive-1", source_type="drive", local_path=None, drive_id="drive-abc")
+    )
+
+    # Act — a local-only index run scopes list_stale to source_type="local"
+    stale = metadata_store.list_stale(set(), source_type="local")
+
+    # Assert — the drive record must never be purged by a run that only walked local files
+    assert [record.id for record in stale] == ["local-1"]
+
+
 def test_delete_file_removes_row(metadata_store):
     metadata_store.upsert_file(_record())
 

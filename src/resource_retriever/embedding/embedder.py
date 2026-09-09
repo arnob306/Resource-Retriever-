@@ -2,6 +2,7 @@
 
 from sentence_transformers import SentenceTransformer
 
+from resource_retriever.chunking.chunker import OffsetTokenizer
 from resource_retriever.config import AppConfig
 
 
@@ -19,7 +20,7 @@ class Embedder:
         self._document_prefix = app_config.document_prefix
 
     @property
-    def tokenizer(self):
+    def tokenizer(self) -> OffsetTokenizer:
         return self._model.tokenizer
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:

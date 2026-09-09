@@ -111,3 +111,21 @@ def test_raises_chunking_error_on_zero_pages(tokenizer):
     # Act / Assert
     with pytest.raises(ChunkingError):
         chunk_pages([], tokenizer, window_tokens=10, overlap_tokens=2)
+
+
+def test_raises_chunking_error_when_overlap_equals_window(tokenizer):
+    # Arrange — step = window - overlap would be 0, so the sliding window could never advance
+    pages = [PageText(page_number=1, text=" ".join(f"word{i}" for i in range(20)))]
+
+    # Act / Assert
+    with pytest.raises(ChunkingError):
+        chunk_pages(pages, tokenizer, window_tokens=10, overlap_tokens=10)
+
+
+def test_raises_chunking_error_when_overlap_exceeds_window(tokenizer):
+    # Arrange — step = window - overlap would be negative, so the window would move backward
+    pages = [PageText(page_number=1, text=" ".join(f"word{i}" for i in range(20)))]
+
+    # Act / Assert
+    with pytest.raises(ChunkingError):
+        chunk_pages(pages, tokenizer, window_tokens=10, overlap_tokens=15)
