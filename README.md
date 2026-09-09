@@ -27,6 +27,7 @@ find-resource index                         # extract, chunk, and embed what cha
 find-resource index --source drive          # same, for a Google Drive account (read-only)
 find-resource find "trig identities test"   # semantic search, ranked results
 find-resource drive-login                   # one-time Drive OAuth consent
+find-resource stats                         # tracked files by source/status, search latency
 ```
 
 ## Architecture
@@ -53,7 +54,8 @@ Storage is deliberately kept behind two small abstract interfaces (`MetadataStor
 - **A privacy denylist with defense in depth.** Files matching configured folder names, path substrings, or an explicit exclusion list are tracked but never embedded. When a file is excluded *after* already being indexed, its vectors are actively purged from the vector store — and the search layer independently double-checks a file's status before ever returning it, so a stale vector alone can never leak excluded content.
 - **Per-file fault isolation.** Indexing ~1,000+ files means something will eventually fail to parse or embed. Every extraction/chunking/embedding/vector-store call is scoped so one corrupt PDF is logged and marked failed — the run continues, it never aborts partway through and silently drops everything after the bad file.
 - **Cross-source content dedup.** The same worksheet often lives in Drive, on the laptop, and in Downloads simultaneously. Search results are deduplicated by content hash before ranking, so identical copies never crowd out genuinely different results.
-- **Drive integration stays read-only and stateless.** OAuth uses the `drive.readonly` scope only; downloaded bytes live in an in-memory buffer and are never written to disk; the token cache and any client secrets are `.gitignore`d and resolved outside the repo by default.
+- **Drive integration stays read-only and stateless.** OAuth uses the `drive.readonly` scope only; downloaded bytes live in an in-memory buffer and are never written to disk; the token cache is written with owner-only file permissions and, along with any client secrets, `.gitignore`d and resolved outside the repo by default.
+- **Ingest re-uses a cheap mtime/size pre-check instead of re-reading everything every run.** A file whose mtime and size haven't changed since it was last successfully hashed skips the read+hash+extract entirely. This closed a real bug this session's own review process caught: without it, a completely ordinary "ingest, then index" cycle was silently re-embedding the *entire* corpus every time, because ingest reset every file's status on every run regardless of whether anything had changed.
 
 ## Tech stack
 
@@ -69,12 +71,14 @@ Storage is deliberately kept behind two small abstract interfaces (`MetadataStor
 
 ## Testing & quality
 
-- **112 tests** across unit, integration, and CLI layers, **96%+ coverage** on touched modules (project floor: 80%).
+- **138 tests** across unit, integration, and CLI layers, **97% coverage project-wide** (floor: 80%; no single module below 90%).
 - Fast unit tests run against fakes/stubs (no real model, no network); a smaller set of integration/CLI tests exercise the real embedding model and a real ChromaDB store end to end.
-- Every phase of the build went through a dedicated, independent code-review pass (general correctness + Python-specific idiom/security review) *after* the initial implementation — several real bugs were caught and fixed this way before merge, including:
+- Every phase of the build went through a dedicated, independent code-review pass (general correctness + Python-specific idiom/security review) *after* the initial implementation — real bugs were caught and fixed this way before merge, including:
   - a chunker input that could hang the indexing process indefinitely (unvalidated `overlap_tokens >= window_tokens`),
   - excluded (privacy-denylisted) files that could still surface in search results because their vectors were never purged,
-  - an unvalidated CLI flag (`--top-k 0`) that crashed with a raw library traceback instead of a clean error.
+  - an unvalidated CLI flag (`--top-k 0`) that crashed with a raw library traceback instead of a clean error,
+  - a Drive OAuth token cache written with default (potentially world-readable) file permissions,
+  - a status-tracking bug that made a routine ingest-then-index cycle silently re-embed the entire corpus every time instead of only what changed.
 - Every fix shipped with a regression test — the review process isn't just "read the code," it's "prove the bug existed, then prove it's gone."
 
 ## Project status
@@ -85,8 +89,8 @@ Storage is deliberately kept behind two small abstract interfaces (`MetadataStor
 | 2 | Chunking, embedding, ChromaDB vector store | Done |
 | 3 | CLI semantic search end-to-end | Done |
 | 4 | Google Drive ingestion (read-only, OAuth) | Done |
-| 5 | Incremental re-index at full scale (~1,000+ files), `stats` command | In progress |
-| 6 | Test coverage completion (≥80% project-wide, currently 96%+ on touched modules) | In progress |
+| 5 | Incremental re-index at full scale, `stats` command | Done |
+| 6 | Test coverage completion (≥80% project-wide) | Done — 97% |
 
 ## Running it locally
 
