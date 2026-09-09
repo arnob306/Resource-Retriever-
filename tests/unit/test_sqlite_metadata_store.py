@@ -103,3 +103,20 @@ def test_get_by_path_returns_none_when_not_found(metadata_store):
     result = metadata_store.get_by_path("/does/not/exist.pdf")
 
     assert result is None
+
+
+def test_search_stats_returns_zero_and_none_when_nothing_logged(metadata_store):
+    total, average = metadata_store.search_stats()
+
+    assert total == 0
+    assert average is None
+
+
+def test_search_stats_averages_logged_latencies(metadata_store):
+    metadata_store.record_search(query="a", latency_ms=100, result_count=1)
+    metadata_store.record_search(query="b", latency_ms=300, result_count=0)
+
+    total, average = metadata_store.search_stats()
+
+    assert total == 2
+    assert average == 200.0

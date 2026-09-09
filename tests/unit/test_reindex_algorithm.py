@@ -1,4 +1,4 @@
-from resource_retriever.indexing.reindex_algorithm import Action, DiscoveredState, decide_action
+from resource_retriever.indexing.reindex_algorithm import Action, DiscoveredState, decide_action, mtime_size_match
 from resource_retriever.models.file_record import FileRecord
 
 
@@ -89,3 +89,19 @@ def test_returns_skip_when_hash_unchanged_and_mtime_not_advanced():
 
     # Assert
     assert action == Action.SKIP
+
+
+def test_mtime_size_match_true_when_all_three_agree():
+    assert mtime_size_match(1000, 100, "hash-a", 1000, 100) is True
+
+
+def test_mtime_size_match_false_when_no_existing_hash():
+    assert mtime_size_match(1000, 100, None, 1000, 100) is False
+
+
+def test_mtime_size_match_false_when_mtime_differs():
+    assert mtime_size_match(1000, 100, "hash-a", 2000, 100) is False
+
+
+def test_mtime_size_match_false_when_size_differs():
+    assert mtime_size_match(1000, 100, "hash-a", 1000, 200) is False

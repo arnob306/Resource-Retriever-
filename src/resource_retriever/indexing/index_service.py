@@ -17,7 +17,7 @@ from resource_retriever.config import AppConfig
 from resource_retriever.embedding.embedder import Embedder
 from resource_retriever.extraction.pdf_text_extractor import extract_pages
 from resource_retriever.hashing import compute_content_hash
-from resource_retriever.indexing.reindex_algorithm import Action, DiscoveredState, decide_action
+from resource_retriever.indexing.reindex_algorithm import Action, DiscoveredState, decide_action, mtime_size_match
 from resource_retriever.models.chunk import Chunk
 from resource_retriever.models.file_record import FileRecord
 from resource_retriever.storage.metadata_store import MetadataStore
@@ -88,11 +88,7 @@ def _resolve_discovered_state(record: FileRecord, force_rehash: bool) -> Optiona
     stat = path.stat()
     current_mtime = int(stat.st_mtime * 1000)
     current_size = stat.st_size
-    unchanged = (
-        current_mtime == record.modified_time
-        and current_size == record.file_size
-        and record.content_hash is not None
-    )
+    unchanged = mtime_size_match(record.modified_time, record.file_size, record.content_hash, current_mtime, current_size)
 
     content_hash = None
     if force_rehash or not unchanged:
@@ -129,7 +125,10 @@ def _embed_file(
     embedder: Embedder,
     app_config: AppConfig,
 ) -> str:
-    is_new = record.status != "indexed"
+    # indexed_at (not status) is the correct "was this ever successfully embedded before?"
+    # signal: ingest_service.py resets status to 'discovered' for any file whose content
+    # genuinely changed, even one that was already indexed, but it always preserves indexed_at.
+    is_new = record.indexed_at is None
     try:
         pages = extract_pages(Path(record.local_path).read_bytes())
         spans = chunk_pages(pages, embedder.tokenizer, app_config.chunk_window_tokens, app_config.chunk_overlap_tokens)

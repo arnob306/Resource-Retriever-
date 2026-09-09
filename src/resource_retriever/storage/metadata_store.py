@@ -46,3 +46,8 @@ class MetadataStore(ABC):
 
     @abstractmethod
     def record_search(self, *, query: str, latency_ms: int, result_count: int) -> None: ...
+
+    @abstractmethod
+    def search_stats(self) -> tuple[int, Optional[float]]:
+        """Return (total searches logged, average latency in ms — None if none logged yet)."""
+        ...
