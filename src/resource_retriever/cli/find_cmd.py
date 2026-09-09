@@ -14,7 +14,7 @@ from resource_retriever.storage.sqlite_metadata_store import SqliteMetadataStore
 
 def find(
     query: str = typer.Argument(..., help="Natural-language search query."),
-    top_k: int = typer.Option(5, "--top-k", help="Maximum number of results to return."),
+    top_k: int = typer.Option(5, "--top-k", min=1, help="Maximum number of results to return."),
     data_dir: Optional[Path] = typer.Option(None, "--data-dir", help="Override the local data directory."),
 ) -> None:
     """Search indexed files for QUERY and print ranked results."""

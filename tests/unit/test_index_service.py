@@ -146,3 +146,39 @@ def test_run_index_marks_unreadable_file_failed_without_aborting_the_run(monkeyp
     records = {record.id: record for record in metadata_store.list_all(source_type="local")}
     assert records["good"].status == "indexed"
     assert records["locked"].status == "discovered"
+
+
+def test_run_index_purges_vectors_for_a_file_excluded_after_being_indexed(metadata_store, app_config):
+    # Arrange — previously indexed (indexed_at set), then excluded since (e.g. a new denylist rule)
+    metadata_store.upsert_file(
+        _record(
+            id="now-excluded",
+            status="excluded",
+            content_hash="hash-a",
+            indexed_at="2024-01-01T00:00:00+00:00",
+        )
+    )
+    vector_store = RecordingVectorStore()
+
+    # Act
+    summary = index_service.run_index(metadata_store, vector_store, StubEmbedder(), app_config)
+
+    # Assert — its stale chunks are purged from the vector store and indexed_at is cleared
+    assert vector_store.deletes == ["now-excluded"]
+    assert summary.deleted == 1
+    record = metadata_store.get_by_id("now-excluded")
+    assert record.status == "excluded"
+    assert record.indexed_at is None
+
+
+def test_run_index_leaves_never_indexed_excluded_file_alone(metadata_store, app_config):
+    # Arrange — excluded from the start (e.g. at ingest time), never embedded, indexed_at is None
+    metadata_store.upsert_file(_record(id="always-excluded", status="excluded", indexed_at=None))
+    vector_store = RecordingVectorStore()
+
+    # Act
+    summary = index_service.run_index(metadata_store, vector_store, StubEmbedder(), app_config)
+
+    # Assert — nothing to purge, no wasted delete call
+    assert vector_store.deletes == []
+    assert summary.deleted == 0
